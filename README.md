@@ -8,15 +8,10 @@ An AI-powered Travel Assistant built using Retrieval-Augmented Generation (RAG),
 
 GitHub Repository:
 
-https://github.com/<your-github-username>/<repository-name>
+https://github.com/Jasmeet02/SingaporeTravelAssistant
 
-Example:
-
-https://github.com/jasmeetkaur/travel-assistant
 
 Clone the repository:
 
 ```bash
-git clone https://github.com/<your-github-username>/<repository-name>.git
-
-cd <repository-name>
+git clone https://github.com/Jasmeet02/SingaporeTravelAssistant
