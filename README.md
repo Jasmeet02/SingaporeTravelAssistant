@@ -9,7 +9,13 @@ An AI-powered Travel Assistant built using **Retrieval-Augmented Generation (RAG
 GitHub Repository:  
 https://github.com/Jasmeet02/SingaporeTravelAssistant
 
-Clone the repository:
+## Demo Video
+
+Watch the project walkthrough and live demo here:  
+https://nagarro-my.sharepoint.com/personal/jasmeet_kaur02_nagarro_com/_layouts/15/stream.aspx?id=%2Fpersonal%2Fjasmeet%5Fkaur02%5Fnagarro%5Fcom%2FDocuments%2FNAGP%5FAI%5FDS%5FVideos%2FTravel%5FAssistant%5FDemo%2Emp4&nav=eyJyZWZlcnJhbEluZm8iOnsicmVmZXJyYWxBcHAiOiJTdHJlYW1XZWJBcHAiLCJyZWZlcnJhbFZpZXciOiJTaGFyZURpYWxvZy1MaW5rIiwicmVmZXJyYWxBcHBQbGF0Zm9ybSI6IldlYiIsInJlZmVycmFsTW9kZSI6InZpZXcifX0&ga=1&referrer=StreamWebApp%2EWeb&referrerScenario=AddressBarCopied%2Eview%2E61ae3465%2D9cc8%2D4bd1%2D8669%2Dd8c5d8c63bd3
+
+
+## Clone the repository:
 
 ```bash
 git clone https://github.com/Jasmeet02/SingaporeTravelAssistant
