@@ -35,6 +35,7 @@ flowchart LR
     AG --> LLM[OpenAI GPT Model]
     LLM --> O[Final Travel Response]
     O --> S[Sources + Citations]
+
 ```
 
 ### Core components
@@ -53,6 +54,36 @@ flowchart LR
 - `docs/` — source travel guides and itineraries
 - `travel_mcp/` — MCP server implementations for weather and currency
 - `chroma_db1/` — persisted local vector database
+
+### Terminal UI
+
+The app includes a terminal-based user interface that runs directly in the console.
+
+- The CLI prompts the user for questions in the terminal.
+- Responses are printed with styled formatting and source highlights.
+- Users can type `quit` to exit, or `clear`/`clear_history` to reset the active session history.
+
+### Conversation History
+
+The app also supports conversation memory across multiple turns.
+
+- User queries and assistant replies are stored in `conversation_history.json` via `history.py`.
+- The app keeps recent messages in memory during the session and persists completed exchanges to disk.
+- This allows multi-turn context, such as asking a follow-up question after an earlier answer without losing the conversation flow.
+
+Example:
+
+```python
+# in app.py
+session_messages.append({"role": "user", "content": question})
+result = await agent.ainvoke({
+    "messages": session_messages[-10:]
+})
+session_messages.append({"role": "assistant", "content": processed.strip()})
+append_history(question, processed.strip())
+```
+
+The history is saved in JSON format with a timestamp, the user message, and the assistant response.
 
 ---
 
@@ -126,6 +157,14 @@ Each source is chunked, embedded, and stored with metadata including the title a
 
 → Retrieves attractions from Wikivoyage and VisitSingapore documents
 
+
+### Conversational Context**
+User: Which of those are family-friendly?  
+Assistant: [Filters attractions, retains context]
+
+User: List the top 2
+Assistant: [Filters attractions, retains context]
+
 ### MCP Only
 
 “Convert 200 SGD to INR”
@@ -140,12 +179,47 @@ Each source is chunked, embedded, and stored with metadata including the title a
 → Fetches forecast from Weather MCP
 → Produces a weather-aware itinerary with indoor alternatives
 
+
+### Error Handling
+
+Tell me about Paris attractions
+
+→ Handling missing knowledge and does not provide fabricated answers
+
 ## Setup
+
+### Virtual Environment Setup
+
+It is recommended to run the Travel Assistant inside a Python virtual environment:
+
+```bash
+# Create venv
+python -m venv env
+
+# Activate venv
+# Windows
+env\Scripts\activate
+# Linux / macOS
+source env/bin/activate
+```
 
 ### Install dependencies
 
 ```bash
 pip install -r requirements.txt
+```
+
+### Configure OpenAI API Key (Windows)
+
+The Travel Assistant requires an OpenAI API key to access GPT models.
+
+1. Sign up or log in at [OpenAI](https://platform.openai.com/).
+2. Generate an API key from your account dashboard.
+
+
+#### PowerShell
+```powershell
+ $env:OPENAI_API_KEY="your_api_key_here"
 ```
 
 ### Run the application
@@ -169,29 +243,3 @@ python app.py
 - ✅ Simple CLI interface
 
 ---
-
-## Demo
-
-Example run:
-
-> Your question: Plan a three-day trip to Singapore next week and adjust the activities based on the weather forecast.
-
-### Destination Information (from RAG Knowledge Base)
-
-- Day 1: Marina Bay Sands, Gardens by the Bay
-- Day 2: Sentosa Island, Universal Studios
-- Day 3: Chinatown, National Museum
-
-### Current Information (from MCP Tool Result)
-
-- Weather forecast: Rain expected on Day 2
-
-### Recommendations
-
-- Replace outdoor activities on Day 2 with indoor options such as ArtScience Museum and SEA Aquarium.
-
-### Sources Used
-
-- Wikivoyage Singapore Travel Guide
-- Visit Singapore Things To Do
-- Weather MCP Server (Open-Meteo)

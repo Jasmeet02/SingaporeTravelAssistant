@@ -1,5 +1,8 @@
 """Travel Assistant application entry point."""
 
+print("[startup] Launching Travel Assistant (initializing)...", flush=True)
+print("[startup] Loading knowledge base and model context. This may take a few seconds...", flush=True)
+
 # Suppress Python warnings (third-party libs may emit them)
 import warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -13,6 +16,9 @@ except Exception:
             "Missing document loader dependency. Install `langchain-community` or `langchain` (newer versions).")
 import os
 import logging
+import sys
+import itertools
+import threading
 
 from langchain_chroma import Chroma
 from langchain_core.prompts import PromptTemplate
@@ -26,6 +32,7 @@ from langchain.agents import create_agent
 import time
 # Configure logging: default to ERROR to suppress warnings and debug output
 logging.basicConfig(level=logging.ERROR)
+from history import append_history, save_history
 
 # Config
 PERSIST_DIR = "./chroma_db1"
@@ -49,7 +56,24 @@ except Exception:
 
 # Show immediate startup banner and record start time so users see any startup lag
 MODULE_START = time.time()
-print("[startup] Launching Travel Assistant (initializing)...")
+
+
+def start_loading_indicator(label: str):
+    """Start a simple terminal spinner in the background."""
+    stop_event = threading.Event()
+
+    def _animate():
+        spinner = itertools.cycle(["|", "/", "-", "\\"])
+        while not stop_event.wait(0.10):
+            print(f"\r{label} {next(spinner)}", end="", flush=True)
+
+    thread = threading.Thread(target=_animate, daemon=True)
+    thread.start()
+    return stop_event
+
+
+# Start the loading state immediately, before any expensive work begins.
+startup_loading = start_loading_indicator("[startup] Initializing app")
 
 # Conversation history configuration (module-level so tools can access it)
 
@@ -64,16 +88,19 @@ embeddings = OpenAIEmbeddings(
 )
 
 if os.path.exists(PERSIST_DIR) and os.listdir(PERSIST_DIR):
-    print("[startup] Existing vector DB found; loading...", flush=True)
+    print("\r[startup] Existing vector DB found; loading...", flush=True)
     logging.debug("Loading existing vector database...")
 
     vectorstore = Chroma(
         persist_directory=PERSIST_DIR,
         embedding_function=embeddings
     )
+    startup_loading.set()
+    print("\r[startup] Existing vector DB loaded.                    ", flush=True)
+    print()
 
 else:
-    print("[startup] No persisted vector DB found; creating index (this may take a moment)...", flush=True)
+    print("\r[startup] No persisted vector DB found; creating index...", flush=True)
     logging.debug("Creating vector database...")
 
     document = loader.load()
@@ -113,6 +140,9 @@ else:
 
 
     vectorstore = Chroma.from_documents(chunks, embeddings, persist_directory = PERSIST_DIR)
+    startup_loading.set()
+    print("\r[startup] Vector DB created successfully.              ", flush=True)
+    print()
 print(f"[startup] Vector DB ready (took {time.time()-MODULE_START:.2f}s)", flush=True)
 logging.debug("Before retriever")
 
@@ -424,10 +454,15 @@ async def main():
     - NEVER answer from your own knowledge.
     - For destination information, ALWAYS use the travel_knowledge tool.
     - For all destination information, ALWAYS provide the source url of the information.
-    - Do not remove destination names.
     - For weather information, ALWAYS use the weather MCP tool.
     - For currency information, ALWAYS use the currency MCP tool.
     - The travel_knowledge tool contains ONLY Singapore travel information.
+    - When both travel_knowledge and weather tools are used:
+      * Do not output them as separate blocks.
+      * Merge the travel_knowledge context and weather forecast into a single itinerary.
+      * The itinerary itself must reflect the weather forecast (e.g., indoor attractions on thunderstorm days).
+      * Still include "Sources Used" with both RAG and MCP citations.
+    - Do not remove destination names.
     - If the tool reports information unavailable, do not use your own knowledge.
     - Do not provide generic travel recommendations.
     - Do not invent attractions.
@@ -448,6 +483,12 @@ async def main():
 
       Recommendations:
       <recommendations>
+
+      - When both travel_knowledge and weather tools are used:
+            * Do not output them as separate blocks.
+            * Merge the travel_knowledge context and weather forecast into a single itinerary.
+            * The itinerary itself must reflect the weather forecast (e.g., indoor attractions on thunderstorm days).
+            * Still include "Sources Used" with both RAG and MCP citations.
 
     - For all MCP tool responses:
        - If the tool reports an error, do not fabricate an answer. Just mention that there was an error and include the tool's error message.
@@ -514,6 +555,13 @@ async def main():
           # add user message to session context
           session_messages.append({"role": "user", "content": question})
 
+          print(f"\n{COLOR['hint']}Thinking... retrieving travel context and checking live tools...{COLOR['reset']}")
+          spinner = itertools.cycle(["|", "/", "-", "\\"])
+          for _ in range(10):
+              print(f"\r{COLOR['hint']}Working {next(spinner)}{COLOR['reset']}", end="", flush=True)
+              time.sleep(0.15)
+          print("\r" + " " * 40 + "\r", end="", flush=True)
+
           result = await agent.ainvoke({
                       "messages": session_messages[-10:],  # limit to last 10 messages for context
                   })
@@ -526,6 +574,7 @@ async def main():
 
           # add assistant reply to session context and persist
           session_messages.append({"role": "assistant", "content": processed.strip()})
+          logging.debug("Saving conversation history...")
           try:
                append_history(question, processed.strip())
           except Exception as exc:
